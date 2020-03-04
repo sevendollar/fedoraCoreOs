@@ -1,0 +1,71 @@
+variant: fcos
+version: 1.0.0
+passwd:
+  users:
+  - name: core
+    # use "openssl passwd -1" command to create hashed password
+    password_hash: "$1$w2l/8Gr.$9wmRkXArsZzmbXZBSKyow1"
+    ssh_authorized_keys:
+     - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDRcJWlhZTxUNxYVGvVhqkTD2+NyIi6wASdoqm+jfQkF2lnxKROVpODCZ9Yw7J6/V0dQZDc58vAm+tExySB4qkXpvTR0pUrtDZDu0ZiX9E1ErsW14JZKsUCJbJ9z5L41eI13k637vD+o3QGCM7OkdDc0wn8w089EPEcTVXjLhKEtzU6dwkas59mklQNzL4CfaoIFG7nqzuh12nCsXMmrSoP50Crywor4Xu9vgkNse60NENO4uwsrlvEL5sOPGOe1vbEaX8DTkjjA6SVoxKklzSQApZLzQR76ZnQPrAP8ut9qCavJcEV5r14GOBrL1qm0Wz9fBaf3aTBXzI5LZMTT3fz Jeff@Jeffs-MacBook-Air.local"
+     - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDAP6OO9UCi9a4KJZ4ikZFmxmk9IJLSXIeBVBBd/z+hxwH1L42+O6LUimMsVW9f2KS2//2i7BgAJFe93XxXr8EfCC+nTOORFMGP3copkvDp57Kofu+Tfb/DAcSyYPT3K4ilMv/j4CW/RiBgG/YAsSUeEbO+i5S8YolR/CdK0awGx6Q4DcX2yrOECfv+hv2Fq4UyVdaURSo8jtFhD3AfY50eb5G11SWbwqz0wDJV2Xlhb2UykjPEbCwSsYMurU6FYbFlOzRKUs1c5R+OD11dk2uwLSdM6L1ZVcleLo8hsaB0Zw3Pkj1sPxiGHITHGUxr4weUJjlYdTyXaXy9fowBIcS3 jeffl@jumper-amc"
+  - name: jeffl
+    password_hash: "$1$CNadciAh$5qgXvlT5Dc5WNf8Qchtsr0"
+    ssh_authorized_keys:
+     - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDRcJWlhZTxUNxYVGvVhqkTD2+NyIi6wASdoqm+jfQkF2lnxKROVpODCZ9Yw7J6/V0dQZDc58vAm+tExySB4qkXpvTR0pUrtDZDu0ZiX9E1ErsW14JZKsUCJbJ9z5L41eI13k637vD+o3QGCM7OkdDc0wn8w089EPEcTVXjLhKEtzU6dwkas59mklQNzL4CfaoIFG7nqzuh12nCsXMmrSoP50Crywor4Xu9vgkNse60NENO4uwsrlvEL5sOPGOe1vbEaX8DTkjjA6SVoxKklzSQApZLzQR76ZnQPrAP8ut9qCavJcEV5r14GOBrL1qm0Wz9fBaf3aTBXzI5LZMTT3fz Jeff@Jeffs-MacBook-Air.local"
+     - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDAP6OO9UCi9a4KJZ4ikZFmxmk9IJLSXIeBVBBd/z+hxwH1L42+O6LUimMsVW9f2KS2//2i7BgAJFe93XxXr8EfCC+nTOORFMGP3copkvDp57Kofu+Tfb/DAcSyYPT3K4ilMv/j4CW/RiBgG/YAsSUeEbO+i5S8YolR/CdK0awGx6Q4DcX2yrOECfv+hv2Fq4UyVdaURSo8jtFhD3AfY50eb5G11SWbwqz0wDJV2Xlhb2UykjPEbCwSsYMurU6FYbFlOzRKUs1c5R+OD11dk2uwLSdM6L1ZVcleLo8hsaB0Zw3Pkj1sPxiGHITHGUxr4weUJjlYdTyXaXy9fowBIcS3 jeffl@jumper-amc"
+    groups: [ sudo, docker ]
+storage:
+  files:
+    # set hostname
+    - path: /etc/hostname
+      mode: 0420
+      overwrite: true
+      contents:
+        inline: |
+          jumper-amc
+    # set static IP address
+    - path: /etc/NetworkManager/system-connections/eth0.nmconnection
+      mode: 0600
+      overwrite: true
+      contents:
+        inline: |
+          [connection]
+          type=ethernet
+          interface-name=eth0
+
+          [ethernet]
+          mac-address=00:50:56:8b:78:08
+
+          [ipv4]
+          method=manual
+          addresses=10.7.12.80/24
+          gateway=10.7.12.254
+          dns=192.168.15.9;10.5.15.106
+          dns-search=cvl.local
+systemd:
+  units:
+  - name: etcd-member.service
+    enabled: true
+    contents: |
+      [Unit]
+      Description=Run single node etcd v3.4.4
+      After=network-online.target
+      Wants=network-online.target
+      After=docker.service
+      Wants=docker.service
+
+      [Service]
+      ExecStartPre=mkdir -p /var/lib/etcd
+      ExecStartPre=-/usr/bin/docker kill etcd
+      ExecStartPre=-/usr/bin/docker rm etcd
+      ExecStartPre=-/usr/bin/docker pull quay.io/coreos/etcd
+      ExecStart=/usr/bin/docker run --name etcd --volume /var/lib/etcd:/etcd-data:z --net=host quay.io/coreos/etcd:v3.4.4 /usr/local/bin/etcd --data-dir /etcd-data --name node1 \
+              --initial-advertise-peer-urls http://127.0.0.1:2380 --listen-peer-urls http://127.0.0.1:2380 \
+              --advertise-client-urls http://127.0.0.1:2379 \
+              --listen-client-urls http://127.0.0.1:2379 \
+              --initial-cluster node1=http://127.0.0.1:2380
+
+      ExecStop=/usr/bin/docker stop etcd
+
+      [Install]
+      WantedBy=multi-user.target
